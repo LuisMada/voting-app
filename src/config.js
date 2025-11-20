@@ -1,7 +1,7 @@
 // CONTRACT CONFIG FOR SEPOLIA TESTNET
 // File: src/config.js or use directly in App.js
 
-export const CONTRACT_ADDRESS = "0x2006B5D4F4937DF84B6bfF477050e3eD4ae30c0b";
+export const CONTRACT_ADDRESS = "0x4eF2bbE3dDE2D239fd7F56730049c824C06a547e";
 // ⚠️ IMPORTANT: Replace with your new contract address from Remix deployment
 
 export const CONTRACT_ABI = [
@@ -120,6 +120,14 @@ export const CONTRACT_ABI = [
     stateMutability: "nonpayable",
     type: "function",
     description: "Finalize results and lock voting (admin only)"
+  },
+  {
+    inputs: [],
+    name: "resetVoting",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+    description: "Reset voting session while keeping candidates (owner only)"
   },
   {
     inputs: [{ internalType: "string", name: "_optionName", type: "string" }],

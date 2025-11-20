@@ -5,7 +5,7 @@ import { ethers } from 'ethers';
 // ============================================================
 // CONTRACT CONFIG
 // ============================================================
-const CONTRACT_ADDRESS = '0x2006B5D4F4937DF84B6bfF477050e3eD4ae30c0b';
+const CONTRACT_ADDRESS = '0x4eF2bbE3dDE2D239fd7F56730049c824C06a547e';
 const SEPOLIA_CHAIN_ID = '11155111';
 
 const CONTRACT_ABI = [
@@ -107,6 +107,13 @@ const CONTRACT_ABI = [
   {
     inputs: [],
     name: 'finalizeVoting',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function'
+  },
+  {
+    inputs: [],
+    name: 'resetVoting',
     outputs: [],
     stateMutability: 'nonpayable',
     type: 'function'
@@ -238,13 +245,15 @@ function App() {
 
   // Voter management states
   const [voterAddress, setVoterAddress] = useState('');
-  const [voterId, setVoterId] = useState('');
-  const [voterError, setVoterError] = useState('');
+  const [generatedVoterId, setGeneratedVoterId] = useState(null);
   const [addressError, setAddressError] = useState('');
 
   // Admin management states
   const [newAdminAddress, setNewAdminAddress] = useState('');
   const [adminError, setAdminError] = useState('');
+
+  // Candidate management state
+  const [newCandidateName, setNewCandidateName] = useState('');
 
   // ============================================================
   // UTILITY FUNCTIONS
@@ -280,6 +289,23 @@ function App() {
 
   const validateEthereumAddress = (address) => {
     return ethers.isAddress(address);
+  };
+
+  // Generate UUID for voter ID
+  const generateVoterId = () => {
+    return `VOT-${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
+  };
+
+  const handleVoterAddressChange = (address) => {
+    setVoterAddress(address);
+    setAddressError('');
+    
+    // Auto-generate ID when valid address is entered
+    if (address && validateEthereumAddress(address)) {
+      setGeneratedVoterId(generateVoterId());
+    } else {
+      setGeneratedVoterId(null);
+    }
   };
 
   // ============================================================
@@ -339,6 +365,7 @@ function App() {
   };
 
   const disconnectWallet = () => {
+    // Clear all state
     setAccount(null);
     setIsConnected(false);
     setContract(null);
@@ -348,7 +375,29 @@ function App() {
     setIsAdmin(false);
     setIsEligible(false);
     setHasVoted(false);
-    showToast('Wallet disconnected', 'success');
+    setOptions([]);
+    setAdmins([]);
+    setRegisteredVoters([]);
+    setWinningOption(null);
+    setVotingState(null);
+    setTotalVotes(0);
+    setVotingDeadline(null);
+    setOwner(null);
+
+    // Clear browser caches
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch (e) {
+      console.log('Could not clear storage:', e);
+    }
+
+    showToast('Wallet disconnected and cache cleared', 'success');
+
+    // Optional: Hard reload after a brief delay
+    setTimeout(() => {
+      window.location.reload();
+    }, 500);
   };
 
   // ============================================================
@@ -531,12 +580,11 @@ function App() {
 
   const handleAddEligibleVoter = async () => {
     // Reset errors
-    setVoterError('');
     setAddressError('');
 
     // Validation
-    if (!voterAddress || !voterId) {
-      showToast('Please enter both address and voter ID', 'error');
+    if (!voterAddress) {
+      showToast('Please enter a voter address', 'error');
       return;
     }
 
@@ -546,15 +594,19 @@ function App() {
       return;
     }
 
+    if (!generatedVoterId) {
+      showToast('Please enter a valid address to generate ID', 'error');
+      return;
+    }
+
     if (registeredVoters.some(v => v.voterAddress.toLowerCase() === voterAddress.toLowerCase())) {
       setAddressError('Address already registered');
       showToast('Address already registered', 'error');
       return;
     }
 
-    if (registeredVoters.some(v => v.voterId === voterId)) {
-      setVoterError('Voter ID already taken');
-      showToast('Voter ID already taken', 'error');
+    if (registeredVoters.some(v => v.voterId === generatedVoterId)) {
+      showToast('Generated ID collision (rare). Try again.', 'error');
       return;
     }
 
@@ -565,12 +617,12 @@ function App() {
 
     setLoading(true);
     try {
-      const tx = await contract.addEligibleVoter(voterAddress, voterId);
+      const tx = await contract.addEligibleVoter(voterAddress, generatedVoterId);
       const receipt = await tx.wait();
 
-      showToast('Voter added successfully!', 'success', receipt.hash);
+      showToast(`Voter added with ID: ${generatedVoterId}`, 'success', receipt.hash);
       setVoterAddress('');
-      setVoterId('');
+      setGeneratedVoterId(null);
       setTimeout(() => fetchContractState(contract), 1000);
     } catch (error) {
       console.error('Add voter error:', error);
@@ -648,6 +700,62 @@ function App() {
     }
   };
 
+  const handleAddCandidate = async () => {
+    if (!newCandidateName.trim()) {
+      showToast('Candidate name required', 'error');
+      return;
+    }
+
+    if (votingState !== 0) {
+      showToast('Can only add candidates before voting opens (Idle state)', 'error');
+      return;
+    }
+
+    if (options.length >= 20) {
+      showToast('Maximum 20 candidates reached', 'error');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const tx = await contract.addOption(newCandidateName);
+      const receipt = await tx.wait();
+
+      showToast('Candidate added successfully!', 'success', receipt.hash);
+      setNewCandidateName('');
+      setTimeout(() => fetchContractState(contract), 1000);
+    } catch (error) {
+      console.error('Add candidate error:', error);
+      showToast(error.message || 'Failed to add candidate', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetSession = async () => {
+    if (!window.confirm(
+      'WARNING: This will reset ALL votes and eligible voters.\n' +
+      'Candidates will be KEPT.\n' +
+      'Are you absolutely sure?'
+    )) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const tx = await contract.resetVoting();
+      const receipt = await tx.wait();
+
+      showToast('Voting session reset! Ready for new voting.', 'success', receipt.hash);
+      setTimeout(() => fetchContractState(contract), 1000);
+    } catch (error) {
+      console.error('Reset session error:', error);
+      showToast(error.message || 'Failed to reset session', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // ============================================================
   // EFFECTS
   // ============================================================
@@ -683,22 +791,42 @@ function App() {
   useEffect(() => {
     const handleAccountsChanged = (accounts) => {
       if (accounts.length === 0) {
-        setIsConnected(false);
-        setAccount(null);
-      } else {
-        setAccount(accounts[0]);
+        // User disconnected MetaMask
+        disconnectWallet();
+      } else if (accounts[0].toLowerCase() !== (account?.toLowerCase() || '')) {
+        // User switched accounts - force full refresh
+        const newAccount = accounts[0];
+        setAccount(newAccount);
+        setIsEligible(false);
+        setHasVoted(false);
+        setIsOwner(false);
+        setIsAdmin(false);
+        
+        // Fetch fresh contract state with new account
         if (contract) {
-          fetchContractState(contract);
+          setTimeout(() => {
+            fetchContractState(contract);
+          }, 300);
         }
+        
+        showToast(`Switched to account: ${formatAddress(newAccount)}`, 'success');
       }
     };
 
     const handleChainChanged = (chainId) => {
       const chainIdDecimal = parseInt(chainId, 16);
-      if (chainIdDecimal !== SEPOLIA_CHAIN_ID) {
+      if (chainIdDecimal !== parseInt(SEPOLIA_CHAIN_ID)) {
         setWrongNetwork(true);
+        // Clear sensitive data on wrong network
+        setIsEligible(false);
+        setIsOwner(false);
+        setIsAdmin(false);
       } else {
         setWrongNetwork(false);
+        // Refresh when switching back to correct network
+        if (contract) {
+          fetchContractState(contract);
+        }
       }
     };
 
@@ -711,7 +839,7 @@ function App() {
         window.ethereum.removeListener('chainChanged', handleChainChanged);
       };
     }
-  }, [contract]);
+  }, [contract, account]);
 
   // ============================================================
   // RENDER
@@ -1046,13 +1174,29 @@ function App() {
                 )}
 
                 {votingState === 4 && (
-                  <div className="admin-card">
-                    <h3>Voting Complete</h3>
-                    <p className="admin-description">
-                      Results have been finalized and locked.
-                    </p>
-                    <div className="finalized-badge">✓ Finalized</div>
-                  </div>
+                  <>
+                    <div className="admin-card">
+                      <h3>Voting Complete</h3>
+                      <p className="admin-description">
+                        Results have been finalized and locked.
+                      </p>
+                      <div className="finalized-badge">✓ Finalized</div>
+                    </div>
+
+                    <div className="admin-card">
+                      <h3>Start New Session</h3>
+                      <p className="admin-description">
+                        Reset votes and voters. All candidates will be kept.
+                      </p>
+                      <button
+                        className="btn btn-secondary btn-block"
+                        onClick={handleResetSession}
+                        disabled={loading}
+                      >
+                        {loading ? 'Resetting...' : '🔄 Reset & Start New Session'}
+                      </button>
+                    </div>
+                  </>
                 )}
               </div>
 
@@ -1104,6 +1248,50 @@ function App() {
                 </div>
               )}
 
+              {/* Add Candidates Section - Only in Idle State */}
+              {votingState === 0 && (
+                <div className="admin-section">
+                  <h3>Add Candidates</h3>
+                  <p className="admin-description">
+                    Current candidates: {options.length} / 20
+                  </p>
+                  <div className="admin-form">
+                    <input
+                      type="text"
+                      value={newCandidateName}
+                      onChange={(e) => setNewCandidateName(e.target.value)}
+                      placeholder="Candidate name"
+                      className="input"
+                      disabled={loading || options.length >= 20}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') handleAddCandidate();
+                      }}
+                    />
+                    <button
+                      className="btn btn-primary btn-block"
+                      onClick={handleAddCandidate}
+                      disabled={loading || options.length >= 20}
+                    >
+                      {loading ? 'Adding...' : 'Add Candidate'}
+                    </button>
+                  </div>
+
+                  {options.length > 0 && (
+                    <div className="candidates-list">
+                      <h4>Candidates ({options.length})</h4>
+                      <div className="candidates-table">
+                        {options.map((opt, idx) => (
+                          <div key={idx} className="candidate-item">
+                            <span className="candidate-number">{idx + 1}.</span>
+                            <span className="candidate-name">{opt.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Eligible Voters Management */}
               <div className="admin-section">
                 <h3>Manage Eligible Voters</h3>
@@ -1114,27 +1302,24 @@ function App() {
                   <input
                     type="text"
                     value={voterAddress}
-                    onChange={(e) => setVoterAddress(e.target.value)}
+                    onChange={(e) => handleVoterAddressChange(e.target.value)}
                     placeholder="Voter Ethereum Address (0x...)"
                     className={`input ${addressError ? 'input-error' : ''}`}
                     disabled={loading}
                   />
                   {addressError && <div className="error-message">{addressError}</div>}
 
-                  <input
-                    type="text"
-                    value={voterId}
-                    onChange={(e) => setVoterId(e.target.value)}
-                    placeholder="Voter ID (e.g., ID-001)"
-                    className={`input ${voterError ? 'input-error' : ''}`}
-                    disabled={loading}
-                  />
-                  {voterError && <div className="error-message">{voterError}</div>}
+                  {/* Show auto-generated ID preview */}
+                  {generatedVoterId && (
+                    <div className="generated-id-preview">
+                      <strong>Generated ID:</strong> <span className="id-value">{generatedVoterId}</span>
+                    </div>
+                  )}
 
                   <button
                     className="btn btn-primary btn-block"
                     onClick={handleAddEligibleVoter}
-                    disabled={loading || registeredVoters.length >= 100}
+                    disabled={loading || registeredVoters.length >= 100 || !generatedVoterId}
                   >
                     {loading ? 'Adding...' : 'Add Eligible Voter'}
                   </button>

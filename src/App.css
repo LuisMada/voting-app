@@ -751,6 +751,89 @@ body {
 }
 
 /* Admin Voters List */
+/* Admin Voters List */
+.voters-list {
+  background: var(--card);
+  border: 2px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.generated-id-preview {
+  background: var(--accent);
+  border: 1px solid var(--border);
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+}
+
+.generated-id-preview strong {
+  color: var(--foreground);
+  margin-right: 0.5rem;
+}
+
+.generated-id-preview .id-value {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  padding: 0.35rem 0.75rem;
+  border-radius: 0.4rem;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+}
+
+.candidates-list {
+  background: var(--card);
+  border: 2px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.candidates-list h4 {
+  font-size: 1.1rem;
+  color: var(--foreground);
+  margin-bottom: 1rem;
+  font-weight: 700;
+}
+
+.candidates-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.candidate-item {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  gap: 1rem;
+}
+
+.candidate-item:hover {
+  background: var(--accent);
+  border-color: var(--primary);
+}
+
+.candidate-number {
+  font-weight: 700;
+  color: var(--primary);
+  min-width: 30px;
+}
+
+.candidate-name {
+  flex: 1;
+  color: var(--foreground);
+  font-weight: 500;
+}
+
 .voters-list {
   background: var(--card);
   border: 2px solid var(--border);
