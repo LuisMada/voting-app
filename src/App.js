@@ -5,10 +5,33 @@ import { ethers } from 'ethers';
 // ============================================================
 // CONTRACT CONFIG
 // ============================================================
-const CONTRACT_ADDRESS = '0x605E8e5B19975a344401dCB54658b15aE59259A6';
+const CONTRACT_ADDRESS = '0x2006B5D4F4937DF84B6bfF477050e3eD4ae30c0b';
 const SEPOLIA_CHAIN_ID = '11155111';
 
 const CONTRACT_ABI = [
+  // Admin functions
+  {
+    inputs: [{ internalType: 'address', name: '_adminAddress', type: 'address' }],
+    name: 'addAdmin',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function'
+  },
+  {
+    inputs: [{ internalType: 'address', name: '_adminAddress', type: 'address' }],
+    name: 'removeAdmin',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function'
+  },
+  {
+    inputs: [],
+    name: 'getAdminList',
+    outputs: [{ internalType: 'address[]', name: '', type: 'address[]' }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  // Voter functions
   {
     inputs: [
       { internalType: 'address', name: '_voterAddress', type: 'address' },
@@ -20,8 +43,56 @@ const CONTRACT_ABI = [
     type: 'function'
   },
   {
-    inputs: [{ internalType: 'string', name: '_optionName', type: 'string' }],
-    name: 'addOption',
+    inputs: [{ internalType: 'address', name: '_voterAddress', type: 'address' }],
+    name: 'removeEligibleVoter',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function'
+  },
+  {
+    inputs: [],
+    name: 'getRegisteredVoters',
+    outputs: [
+      {
+        components: [
+          { internalType: 'address', name: 'voterAddress', type: 'address' },
+          { internalType: 'string', name: 'voterId', type: 'string' },
+          { internalType: 'bool', name: 'isEligible', type: 'bool' },
+          { internalType: 'uint256', name: 'registeredAt', type: 'uint256' }
+        ],
+        internalType: 'struct VotingContract.VoterRecord[]',
+        name: '',
+        type: 'tuple[]'
+      }
+    ],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [],
+    name: 'getRegisteredVotersCount',
+    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  // Voting period functions
+  {
+    inputs: [{ internalType: 'uint256', name: '_votingDurationSeconds', type: 'uint256' }],
+    name: 'openVoting',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function'
+  },
+  {
+    inputs: [],
+    name: 'pauseVoting',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function'
+  },
+  {
+    inputs: [],
+    name: 'resumeVoting',
     outputs: [],
     stateMutability: 'nonpayable',
     type: 'function'
@@ -34,20 +105,6 @@ const CONTRACT_ABI = [
     type: 'function'
   },
   {
-    inputs: [{ internalType: 'string[]', name: '_optionNames', type: 'string[]' }],
-    stateMutability: 'nonpayable',
-    type: 'constructor'
-  },
-  {
-    anonymous: false,
-    inputs: [
-      { indexed: true, internalType: 'address', name: 'voterAddress', type: 'address' },
-      { indexed: false, internalType: 'bytes32', name: 'voterIDHash', type: 'bytes32' }
-    ],
-    name: 'EligibleVoterAdded',
-    type: 'event'
-  },
-  {
     inputs: [],
     name: 'finalizeVoting',
     outputs: [],
@@ -55,18 +112,13 @@ const CONTRACT_ABI = [
     type: 'function'
   },
   {
-    inputs: [{ internalType: 'uint256', name: '_votingDurationSeconds', type: 'uint256' }],
-    name: 'openVoting',
+    inputs: [{ internalType: 'string', name: '_optionName', type: 'string' }],
+    name: 'addOption',
     outputs: [],
     stateMutability: 'nonpayable',
     type: 'function'
   },
-  {
-    anonymous: false,
-    inputs: [{ indexed: false, internalType: 'string', name: 'optionName', type: 'string' }],
-    name: 'OptionAdded',
-    type: 'event'
-  },
+  // Vote function
   {
     inputs: [{ internalType: 'uint256', name: '_optionId', type: 'uint256' }],
     name: 'vote',
@@ -74,40 +126,7 @@ const CONTRACT_ABI = [
     stateMutability: 'nonpayable',
     type: 'function'
   },
-  {
-    anonymous: false,
-    inputs: [
-      { indexed: true, internalType: 'uint256', name: 'optionId', type: 'uint256' },
-      { indexed: false, internalType: 'uint256', name: 'timestamp', type: 'uint256' }
-    ],
-    name: 'VoteCast',
-    type: 'event'
-  },
-  {
-    anonymous: false,
-    inputs: [],
-    name: 'VotingClosed',
-    type: 'event'
-  },
-  {
-    anonymous: false,
-    inputs: [],
-    name: 'VotingFinalized',
-    type: 'event'
-  },
-  {
-    anonymous: false,
-    inputs: [{ indexed: false, internalType: 'uint256', name: 'votingDeadline', type: 'uint256' }],
-    name: 'VotingOpened',
-    type: 'event'
-  },
-  {
-    inputs: [],
-    name: 'currentState',
-    outputs: [{ internalType: 'enum VotingContract.VotingState', name: '', type: 'uint8' }],
-    stateMutability: 'view',
-    type: 'function'
-  },
+  // View functions
   {
     inputs: [{ internalType: 'uint256', name: '_optionId', type: 'uint256' }],
     name: 'getOption',
@@ -127,21 +146,7 @@ const CONTRACT_ABI = [
   },
   {
     inputs: [],
-    name: 'getOwner',
-    outputs: [{ internalType: 'address', name: '', type: 'address' }],
-    stateMutability: 'view',
-    type: 'function'
-  },
-  {
-    inputs: [],
     name: 'getTotalVotes',
-    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function'
-  },
-  {
-    inputs: [{ internalType: 'uint256', name: '_optionId', type: 'uint256' }],
-    name: 'getVotesForOption',
     outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
     stateMutability: 'view',
     type: 'function'
@@ -168,13 +173,6 @@ const CONTRACT_ABI = [
     type: 'function'
   },
   {
-    inputs: [{ internalType: 'address', name: '', type: 'address' }],
-    name: 'hasVoted',
-    outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
-    stateMutability: 'view',
-    type: 'function'
-  },
-  {
     inputs: [{ internalType: 'address', name: '_voter', type: 'address' }],
     name: 'isAddressEligible',
     outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
@@ -182,47 +180,20 @@ const CONTRACT_ABI = [
     type: 'function'
   },
   {
-    inputs: [{ internalType: 'address', name: '', type: 'address' }],
-    name: 'isEligible',
-    outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
+    inputs: [],
+    name: 'getOwner',
+    outputs: [{ internalType: 'address', name: '', type: 'address' }],
     stateMutability: 'view',
     type: 'function'
   },
   {
-    inputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-    name: 'options',
+    inputs: [],
+    name: 'getWinningOption',
     outputs: [
-      { internalType: 'string', name: 'name', type: 'string' },
+      { internalType: 'uint256', name: 'optionId', type: 'uint256' },
+      { internalType: 'string', name: 'optionName', type: 'string' },
       { internalType: 'uint256', name: 'voteCount', type: 'uint256' }
     ],
-    stateMutability: 'view',
-    type: 'function'
-  },
-  {
-    inputs: [],
-    name: 'owner',
-    outputs: [{ internalType: 'address', name: '', type: 'address' }],
-    stateMutability: 'view',
-    type: 'function'
-  },
-  {
-    inputs: [],
-    name: 'totalVotes',
-    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function'
-  },
-  {
-    inputs: [{ internalType: 'bytes32', name: '', type: 'bytes32' }],
-    name: 'voterIDHashToAddress',
-    outputs: [{ internalType: 'address', name: '', type: 'address' }],
-    stateMutability: 'view',
-    type: 'function'
-  },
-  {
-    inputs: [],
-    name: 'votingDeadline',
-    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
     stateMutability: 'view',
     type: 'function'
   }
@@ -231,8 +202,9 @@ const CONTRACT_ABI = [
 const VOTING_STATES = {
   0: 'Idle',
   1: 'Open',
-  2: 'Closed',
-  3: 'Finalized'
+  2: 'Paused',
+  3: 'Closed',
+  4: 'Finalized'
 };
 
 function App() {
@@ -248,8 +220,12 @@ function App() {
   const [totalVotes, setTotalVotes] = useState(0);
   const [votingDeadline, setVotingDeadline] = useState(null);
   const [owner, setOwner] = useState(null);
+  const [admins, setAdmins] = useState([]);
+  const [registeredVoters, setRegisteredVoters] = useState([]);
+  const [winningOption, setWinningOption] = useState(null);
 
   const [isOwner, setIsOwner] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [isEligible, setIsEligible] = useState(false);
   const [hasVoted, setHasVoted] = useState(false);
 
@@ -260,7 +236,20 @@ function App() {
   const updateIntervalRef = useRef(null);
   const timerIntervalRef = useRef(null);
 
-  // Utility Functions
+  // Voter management states
+  const [voterAddress, setVoterAddress] = useState('');
+  const [voterId, setVoterId] = useState('');
+  const [voterError, setVoterError] = useState('');
+  const [addressError, setAddressError] = useState('');
+
+  // Admin management states
+  const [newAdminAddress, setNewAdminAddress] = useState('');
+  const [adminError, setAdminError] = useState('');
+
+  // ============================================================
+  // UTILITY FUNCTIONS
+  // ============================================================
+
   const showToast = (message, type = 'success', txHash = null) => {
     setToast({ message, type, txHash });
     setTimeout(() => setToast(null), 4000);
@@ -289,7 +278,14 @@ function App() {
     return remaining > 0 ? remaining : 0;
   };
 
-  // Wallet Connection
+  const validateEthereumAddress = (address) => {
+    return ethers.isAddress(address);
+  };
+
+  // ============================================================
+  // WALLET CONNECTION
+  // ============================================================
+
   const connectWallet = async () => {
     try {
       if (!window.ethereum) {
@@ -303,20 +299,10 @@ function App() {
 
       const chainId = await window.ethereum.request({ method: 'eth_chainId' });
       const chainIdDecimal = parseInt(chainId, 16);
-      
-      // Debug logging
-      console.log('Connected Chain ID (hex):', chainId);
-      console.log('Connected Chain ID (decimal):', chainIdDecimal);
-      console.log('Expected Chain ID (decimal):', SEPOLIA_CHAIN_ID);
-      console.log('SEPOLIA_CHAIN_ID value:', SEPOLIA_CHAIN_ID);
-      console.log('typeof chainIdDecimal:', typeof chainIdDecimal);
-      console.log('typeof SEPOLIA_CHAIN_ID:', typeof SEPOLIA_CHAIN_ID);
-      console.log('Chain ID Match:', chainIdDecimal === parseInt(SEPOLIA_CHAIN_ID));
 
       if (chainIdDecimal !== parseInt(SEPOLIA_CHAIN_ID)) {
         setWrongNetwork(true);
         showToast('Please switch to Sepolia testnet', 'error');
-        console.log('Wrong network - prompting to switch');
         return;
       }
 
@@ -359,23 +345,25 @@ function App() {
     setProvider(null);
     setSigner(null);
     setIsOwner(false);
+    setIsAdmin(false);
     setIsEligible(false);
     setHasVoted(false);
     showToast('Wallet disconnected', 'success');
   };
 
-  // Contract Interactions
+  // ============================================================
+  // CONTRACT INTERACTIONS
+  // ============================================================
+
   const fetchContractState = async (contractInstance) => {
     try {
       if (!contractInstance) return;
 
+      // Fetch voting state
       const state = await contractInstance.getVotingState();
-      const stateNum = Number(state);
-      console.log('Raw voting state from contract:', state);
-      console.log('Voting state as number:', stateNum);
-      console.log('VOTING_STATES:', { 0: 'Idle', 1: 'Open', 2: 'Closed', 3: 'Finalized' }[stateNum]);
-      setVotingState(stateNum);
+      setVotingState(Number(state));
 
+      // Fetch options and votes
       const optionsCount = await contractInstance.getOptionsCount();
       const optionsData = [];
       for (let i = 0; i < optionsCount; i++) {
@@ -384,25 +372,44 @@ function App() {
       }
       setOptions(optionsData);
 
+      // Fetch total votes
       const total = await contractInstance.getTotalVotes();
       setTotalVotes(Number(total));
 
+      // Fetch deadline
       const deadline = await contractInstance.getVotingDeadline();
       setVotingDeadline(Number(deadline));
 
+      // Fetch owner and admins
       const ownerAddress = await contractInstance.getOwner();
       setOwner(ownerAddress);
 
+      const adminList = await contractInstance.getAdminList();
+      setAdmins(adminList);
+
+      // Fetch registered voters
+      const voters = await contractInstance.getRegisteredVoters();
+      setRegisteredVoters(voters);
+
+      // Fetch winning option if finalized
+      const currentState = Number(state);
+      if (currentState === 4) { // Finalized
+        const [winId, winName, winVotes] = await contractInstance.getWinningOption();
+        setWinningOption({ id: Number(winId), name: winName, voteCount: Number(winVotes) });
+      } else {
+        setWinningOption(null);
+      }
+
+      // Check user status if account connected
       if (account) {
         const eligible = await contractInstance.isAddressEligible(account);
         setIsEligible(eligible);
-        console.log('Eligibility check for', account);
-        console.log('Is eligible:', eligible);
 
         const voted = await contractInstance.hasAddressVoted(account);
         setHasVoted(voted);
 
         setIsOwner(ownerAddress.toLowerCase() === account.toLowerCase());
+        setIsAdmin(adminList.some(a => a.toLowerCase() === account.toLowerCase()) || ownerAddress.toLowerCase() === account.toLowerCase());
       }
     } catch (error) {
       console.error('Error fetching contract state:', error);
@@ -427,6 +434,48 @@ function App() {
     } catch (error) {
       console.error('Open voting error:', error);
       showToast(error.message || 'Failed to open voting', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePauseVoting = async () => {
+    if (votingState !== 1) {
+      showToast('Voting is not open', 'error');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const tx = await contract.pauseVoting();
+      const receipt = await tx.wait();
+
+      showToast('Voting paused!', 'success', receipt.hash);
+      setTimeout(() => fetchContractState(contract), 1000);
+    } catch (error) {
+      console.error('Pause voting error:', error);
+      showToast(error.message || 'Failed to pause voting', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResumeVoting = async () => {
+    if (votingState !== 2) {
+      showToast('Voting is not paused', 'error');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const tx = await contract.resumeVoting();
+      const receipt = await tx.wait();
+
+      showToast('Voting resumed!', 'success', receipt.hash);
+      setTimeout(() => fetchContractState(contract), 1000);
+    } catch (error) {
+      console.error('Resume voting error:', error);
+      showToast(error.message || 'Failed to resume voting', 'error');
     } finally {
       setLoading(false);
     }
@@ -480,42 +529,37 @@ function App() {
     }
   };
 
-  const [voterAddress, setVoterAddress] = useState('');
-  const [voterId, setVoterId] = useState('');
-  const [eligibleVoters, setEligibleVoters] = useState([]);
-
-  // Load eligible voters from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem('eligibleVoters');
-    if (saved) {
-      try {
-        setEligibleVoters(JSON.parse(saved));
-      } catch (e) {
-        console.error('Failed to parse saved voters:', e);
-      }
-    }
-  }, []);
-
-  const saveEligibleVoter = (address, id) => {
-    const updated = [...eligibleVoters];
-    const exists = updated.findIndex(v => v.address.toLowerCase() === address.toLowerCase());
-    
-    if (exists === -1) {
-      updated.push({ address, id, addedAt: new Date().toLocaleString() });
-      setEligibleVoters(updated);
-      localStorage.setItem('eligibleVoters', JSON.stringify(updated));
-    }
-  };
-
-  const removeEligibleVoter = (address) => {
-    const updated = eligibleVoters.filter(v => v.address.toLowerCase() !== address.toLowerCase());
-    setEligibleVoters(updated);
-    localStorage.setItem('eligibleVoters', JSON.stringify(updated));
-  };
-
   const handleAddEligibleVoter = async () => {
+    // Reset errors
+    setVoterError('');
+    setAddressError('');
+
+    // Validation
     if (!voterAddress || !voterId) {
       showToast('Please enter both address and voter ID', 'error');
+      return;
+    }
+
+    if (!validateEthereumAddress(voterAddress)) {
+      setAddressError('Invalid Ethereum address');
+      showToast('Invalid Ethereum address', 'error');
+      return;
+    }
+
+    if (registeredVoters.some(v => v.voterAddress.toLowerCase() === voterAddress.toLowerCase())) {
+      setAddressError('Address already registered');
+      showToast('Address already registered', 'error');
+      return;
+    }
+
+    if (registeredVoters.some(v => v.voterId === voterId)) {
+      setVoterError('Voter ID already taken');
+      showToast('Voter ID already taken', 'error');
+      return;
+    }
+
+    if (registeredVoters.length >= 100) {
+      showToast('Maximum 100 voters reached', 'error');
       return;
     }
 
@@ -523,9 +567,6 @@ function App() {
     try {
       const tx = await contract.addEligibleVoter(voterAddress, voterId);
       const receipt = await tx.wait();
-
-      // Save to local tracking
-      saveEligibleVoter(voterAddress, voterId);
 
       showToast('Voter added successfully!', 'success', receipt.hash);
       setVoterAddress('');
@@ -539,7 +580,78 @@ function App() {
     }
   };
 
-  // Effects
+  const handleRemoveVoter = async (voterToRemove) => {
+    setLoading(true);
+    try {
+      const tx = await contract.removeEligibleVoter(voterToRemove);
+      const receipt = await tx.wait();
+
+      showToast('Voter removed successfully!', 'success', receipt.hash);
+      setTimeout(() => fetchContractState(contract), 1000);
+    } catch (error) {
+      console.error('Remove voter error:', error);
+      showToast(error.message || 'Failed to remove voter', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddAdmin = async () => {
+    setAdminError('');
+
+    if (!newAdminAddress) {
+      showToast('Please enter admin address', 'error');
+      return;
+    }
+
+    if (!validateEthereumAddress(newAdminAddress)) {
+      setAdminError('Invalid Ethereum address');
+      showToast('Invalid Ethereum address', 'error');
+      return;
+    }
+
+    if (admins.some(a => a.toLowerCase() === newAdminAddress.toLowerCase())) {
+      setAdminError('Already an admin');
+      showToast('Already an admin', 'error');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const tx = await contract.addAdmin(newAdminAddress);
+      const receipt = await tx.wait();
+
+      showToast('Admin added successfully!', 'success', receipt.hash);
+      setNewAdminAddress('');
+      setTimeout(() => fetchContractState(contract), 1000);
+    } catch (error) {
+      console.error('Add admin error:', error);
+      showToast(error.message || 'Failed to add admin', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemoveAdmin = async (adminToRemove) => {
+    setLoading(true);
+    try {
+      const tx = await contract.removeAdmin(adminToRemove);
+      const receipt = await tx.wait();
+
+      showToast('Admin removed successfully!', 'success', receipt.hash);
+      setTimeout(() => fetchContractState(contract), 1000);
+    } catch (error) {
+      console.error('Remove admin error:', error);
+      showToast(error.message || 'Failed to remove admin', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ============================================================
+  // EFFECTS
+  // ============================================================
+
   useEffect(() => {
     if (contract) {
       fetchContractState(contract);
@@ -575,7 +687,6 @@ function App() {
         setAccount(null);
       } else {
         setAccount(accounts[0]);
-        // Refresh contract data when account changes
         if (contract) {
           fetchContractState(contract);
         }
@@ -600,7 +711,11 @@ function App() {
         window.ethereum.removeListener('chainChanged', handleChainChanged);
       };
     }
-  }, []);
+  }, [contract]);
+
+  // ============================================================
+  // RENDER
+  // ============================================================
 
   return (
     <div className="app">
@@ -659,12 +774,13 @@ function App() {
 
       {isConnected && !wrongNetwork ? (
         <main className="main-content">
+          {/* User Status Section */}
           <section className="user-status">
             <div className="status-grid">
               <div className={`status-card ${isOwner ? 'active' : ''}`}>
                 <div className="status-label">Role</div>
                 <div className="status-value">
-                  {isOwner ? '👑 Owner' : '🗳️ Voter'}
+                  {isOwner ? '👑 Owner' : isAdmin ? '🔧 Admin' : '🗳️ Voter'}
                 </div>
               </div>
               <div className={`status-card ${isEligible ? 'active' : ''}`}>
@@ -682,14 +798,21 @@ function App() {
             </div>
           </section>
 
+          {/* Voting Status Section */}
           <section className="voting-status">
             <div className="status-box">
               <div className="status-header">
                 <h2>Voting Status</h2>
-                <div className="status-badge-large">
+                <div className={`status-badge-large ${votingState === 2 ? 'paused' : ''}`}>
                   {votingState !== null ? VOTING_STATES[votingState] : 'Loading...'}
                 </div>
               </div>
+
+              {votingState === 2 && (
+                <div className="voting-paused-message">
+                  ⏸️ Voting is currently paused
+                </div>
+              )}
 
               <div className="status-details">
                 <div className="detail-row">
@@ -697,158 +820,124 @@ function App() {
                   <strong>{totalVotes}</strong>
                 </div>
 
-                {votingState === 1 && timeRemaining !== null && (
+                {(votingState === 1 || votingState === 2) && votingDeadline && (
                   <div className="detail-row countdown">
                     <span>Time Remaining:</span>
                     <strong className="timer">
-                      {formatTime(timeRemaining)}
+                      {formatTime(timeRemaining || 0)}
                     </strong>
                   </div>
                 )}
-
-                {votingState === 1 && timeRemaining === 0 && (
-                  <div className="detail-row">
-                    <span>Status:</span>
-                    <strong className="expired">Voting Period Expired</strong>
-                  </div>
-                )}
               </div>
             </div>
           </section>
 
-          <section className="voting-options">
-            <h2>Voting Options</h2>
-            <div className="options-grid">
-              {options.map((option) => {
-                const percentage = totalVotes > 0 ? (option.voteCount / totalVotes) * 100 : 0;
-                const canVote =
-                  votingState === 1 &&
-                  isEligible &&
-                  !hasVoted &&
-                  timeRemaining > 0;
-                
-                console.log('Vote button conditions:', {
-                  votingState,
-                  'votingState === 1': votingState === 1,
-                  isEligible,
-                  hasVoted,
-                  timeRemaining,
-                  canVote,
-                  option: option.name
-                });
-
-                return (
-                  <div key={option.id} className="option-card">
-                    <div className="option-header">
-                      <h3>{option.name}</h3>
-                      <div className="vote-count">{option.voteCount} votes</div>
+          {/* Leaderboard Section */}
+          <section className="leaderboard-section">
+            <h2>Leaderboard</h2>
+            <div className="leaderboard">
+              {options.length === 0 ? (
+                <p className="leaderboard-empty">No voting options yet</p>
+              ) : (
+                options
+                  .map((opt, idx) => ({
+                    ...opt,
+                    percentage: totalVotes > 0 ? (opt.voteCount / totalVotes) * 100 : 0
+                  }))
+                  .sort((a, b) => b.voteCount - a.voteCount)
+                  .map((opt, rank) => (
+                    <div key={opt.id} className="leaderboard-item">
+                      <div className="leaderboard-rank">
+                        {rank === 0 && winningOption && votingState === 4 ? '🏆' : `${rank + 1}`}
+                      </div>
+                      <div className="leaderboard-name">{opt.name}</div>
+                      <div className="leaderboard-votes">{opt.voteCount} votes</div>
+                      <div className="leaderboard-percentage">{opt.percentage.toFixed(1)}%</div>
                     </div>
-
-                    <div className="progress-bar">
-                      <div
-                        className="progress-fill"
-                        style={{ width: `${percentage}%` }}
-                      ></div>
-                    </div>
-
-                    <div className="progress-label">
-                      {percentage.toFixed(1)}%
-                    </div>
-
-                    {canVote && (
-                      <button
-                        className="btn btn-primary btn-vote"
-                        onClick={() => handleVote(option.id)}
-                        disabled={loading}
-                      >
-                        {loading ? 'Voting...' : 'Vote'}
-                      </button>
-                    )}
-
-                    {!canVote && votingState === 1 && isEligible && hasVoted && (
-                      <div className="already-voted">Already Voted</div>
-                    )}
-
-                    {!canVote && votingState === 1 && !isEligible && (
-                      <div className="not-eligible">Not Eligible</div>
-                    )}
-                  </div>
-                );
-              })}
+                  ))
+              )}
             </div>
           </section>
 
-          {isOwner && (
+          {/* Winner Announcement */}
+          {votingState === 4 && winningOption && (
+            <section className="winner-announcement">
+              <div className="winner-card">
+                <div className="winner-emoji">🏆</div>
+                <h2>Voting Complete!</h2>
+                <div className="winner-name">{winningOption.name}</div>
+                <div className="winner-votes">
+                  {winningOption.voteCount} vote{winningOption.voteCount !== 1 ? 's' : ''}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* Voting Options Section */}
+          {votingState !== 4 && (
+            <section className="voting-options">
+              <h2>Cast Your Vote</h2>
+              <div className="options-grid">
+                {options.map((option) => {
+                  const percentage = totalVotes > 0 ? (option.voteCount / totalVotes) * 100 : 0;
+                  const canVote =
+                    votingState === 1 &&
+                    isEligible &&
+                    !hasVoted &&
+                    timeRemaining > 0;
+
+                  return (
+                    <div key={option.id} className="option-card">
+                      <div className="option-header">
+                        <h3>{option.name}</h3>
+                        <div className="vote-count">{option.voteCount}</div>
+                      </div>
+
+                      <div className="progress-bar">
+                        <div
+                          className="progress-fill"
+                          style={{ width: `${percentage}%` }}
+                        ></div>
+                      </div>
+
+                      <div className="progress-label">
+                        {percentage.toFixed(1)}%
+                      </div>
+
+                      {canVote && (
+                        <button
+                          className="btn btn-primary btn-vote"
+                          onClick={() => handleVote(option.id)}
+                          disabled={loading}
+                        >
+                          {loading ? 'Voting...' : 'Vote'}
+                        </button>
+                      )}
+
+                      {votingState === 2 && (
+                        <div className="voting-paused-disabled">
+                          ⏸️ Voting Paused
+                        </div>
+                      )}
+
+                      {!canVote && votingState === 1 && isEligible && hasVoted && (
+                        <div className="already-voted">Already Voted</div>
+                      )}
+
+                      {!canVote && votingState === 1 && !isEligible && (
+                        <div className="not-eligible">Not Eligible</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* Admin Panel */}
+          {isAdmin && (
             <section className="admin-panel">
               <h2>Admin Controls</h2>
-              
-              {/* Eligible Voters Management */}
-              <div className="admin-section">
-                <h3>Manage Eligible Voters</h3>
-                <div className="admin-form">
-                  <input
-                    type="text"
-                    value={voterAddress}
-                    onChange={(e) => setVoterAddress(e.target.value)}
-                    placeholder="Voter Ethereum Address (0x...)"
-                    className="input"
-                    disabled={loading}
-                  />
-                  <input
-                    type="text"
-                    value={voterId}
-                    onChange={(e) => setVoterId(e.target.value)}
-                    placeholder="Voter ID (e.g., ID123)"
-                    className="input"
-                    disabled={loading}
-                  />
-                  <button
-                    className="btn btn-primary btn-block"
-                    onClick={handleAddEligibleVoter}
-                    disabled={loading}
-                  >
-                    {loading ? 'Adding...' : 'Add Eligible Voter'}
-                  </button>
-                </div>
-
-                {/* Eligible Voters List */}
-                {eligibleVoters.length > 0 ? (
-                  <div className="voters-list">
-                    <h4>Registered Eligible Voters ({eligibleVoters.length})</h4>
-                    <div className="voters-table">
-                      <div className="voters-header">
-                        <div className="col-address">Address</div>
-                        <div className="col-id">Voter ID</div>
-                        <div className="col-date">Added</div>
-                        <div className="col-action">Action</div>
-                      </div>
-                      {eligibleVoters.map((voter, idx) => (
-                        <div key={idx} className="voters-row">
-                          <div className="col-address">
-                            <span className="mono">{formatAddress(voter.address)}</span>
-                          </div>
-                          <div className="col-id">{voter.id}</div>
-                          <div className="col-date">{voter.addedAt}</div>
-                          <div className="col-action">
-                            <button
-                              className="btn-remove"
-                              onClick={() => removeEligibleVoter(voter.address)}
-                              title="Remove from local list"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="voters-list voters-list-empty">
-                    <h4>Registered Eligible Voters (0)</h4>
-                    <p>No eligible voters added yet. Use the form above to add voters.</p>
-                  </div>
-                )}
-              </div>
 
               {/* Voting Control Cards */}
               <div className="admin-grid">
@@ -876,45 +965,218 @@ function App() {
                   </div>
                 )}
 
-                {votingState === 1 && timeRemaining === 0 && (
-                  <div className="admin-card">
-                    <h3>Close Voting</h3>
-                    <p className="admin-description">
-                      Deadline has passed. Close voting to proceed.
-                    </p>
-                    <button
-                      className="btn btn-secondary btn-block"
-                      onClick={handleCloseVoting}
-                      disabled={loading}
-                    >
-                      {loading ? 'Closing...' : 'Close Voting'}
-                    </button>
-                  </div>
+                {votingState === 1 && (
+                  <>
+                    <div className="admin-card">
+                      <h3>Pause Voting</h3>
+                      <p className="admin-description">
+                        Temporarily pause voting. Can be resumed later.
+                      </p>
+                      <button
+                        className="btn btn-secondary btn-block"
+                        onClick={handlePauseVoting}
+                        disabled={loading}
+                      >
+                        {loading ? 'Pausing...' : 'Pause Voting'}
+                      </button>
+                    </div>
+
+                    <div className="admin-card">
+                      <h3>Close Voting</h3>
+                      <p className="admin-description">
+                        Stop voting permanently.
+                      </p>
+                      <button
+                        className="btn btn-destructive btn-block"
+                        onClick={handleCloseVoting}
+                        disabled={loading}
+                      >
+                        {loading ? 'Closing...' : 'Close Voting'}
+                      </button>
+                    </div>
+                  </>
                 )}
 
                 {votingState === 2 && (
+                  <>
+                    <div className="admin-card">
+                      <h3>Resume Voting</h3>
+                      <p className="admin-description">
+                        Resume voting from pause.
+                      </p>
+                      <button
+                        className="btn btn-primary btn-block"
+                        onClick={handleResumeVoting}
+                        disabled={loading}
+                      >
+                        {loading ? 'Resuming...' : 'Resume Voting'}
+                      </button>
+                    </div>
+
+                    <div className="admin-card">
+                      <h3>Close Voting</h3>
+                      <p className="admin-description">
+                        Stop voting permanently.
+                      </p>
+                      <button
+                        className="btn btn-destructive btn-block"
+                        onClick={handleCloseVoting}
+                        disabled={loading}
+                      >
+                        {loading ? 'Closing...' : 'Close Voting'}
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {votingState === 3 && (
                   <div className="admin-card">
                     <h3>Finalize Results</h3>
                     <p className="admin-description">
-                      Voting is closed. Finalize to lock results.
+                      Lock results and announce winner.
                     </p>
                     <button
                       className="btn btn-primary btn-block"
                       onClick={handleFinalizeVoting}
                       disabled={loading}
                     >
-                      {loading ? 'Finalizing...' : 'Finalize Results'}
+                      {loading ? 'Finalizing...' : 'Finalize & Announce Winner'}
                     </button>
                   </div>
                 )}
 
-                {votingState === 3 && (
+                {votingState === 4 && (
                   <div className="admin-card">
                     <h3>Voting Complete</h3>
                     <p className="admin-description">
                       Results have been finalized and locked.
                     </p>
                     <div className="finalized-badge">✓ Finalized</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Admin Management Section */}
+              {isOwner && (
+                <div className="admin-section">
+                  <h3>Manage Admins</h3>
+                  <div className="admin-form">
+                    <input
+                      type="text"
+                      value={newAdminAddress}
+                      onChange={(e) => setNewAdminAddress(e.target.value)}
+                      placeholder="Admin Ethereum Address (0x...)"
+                      className={`input ${adminError ? 'input-error' : ''}`}
+                      disabled={loading}
+                    />
+                    {adminError && <div className="error-message">{adminError}</div>}
+                    <button
+                      className="btn btn-primary btn-block"
+                      onClick={handleAddAdmin}
+                      disabled={loading}
+                    >
+                      {loading ? 'Adding...' : 'Add Admin'}
+                    </button>
+                  </div>
+
+                  {admins.length > 0 && (
+                    <div className="admins-list">
+                      <h4>Current Admins ({admins.length})</h4>
+                      <div className="admin-table">
+                        {admins.map((admin, idx) => (
+                          <div key={idx} className="admin-row">
+                            <span className="mono">{formatAddress(admin)}</span>
+                            {admin.toLowerCase() !== owner.toLowerCase() && (
+                              <button
+                                className="btn-remove"
+                                onClick={() => handleRemoveAdmin(admin)}
+                                title="Remove admin"
+                                disabled={loading}
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Eligible Voters Management */}
+              <div className="admin-section">
+                <h3>Manage Eligible Voters</h3>
+                <p className="admin-description">
+                  Registered voters: {registeredVoters.length} / 100
+                </p>
+                <div className="admin-form">
+                  <input
+                    type="text"
+                    value={voterAddress}
+                    onChange={(e) => setVoterAddress(e.target.value)}
+                    placeholder="Voter Ethereum Address (0x...)"
+                    className={`input ${addressError ? 'input-error' : ''}`}
+                    disabled={loading}
+                  />
+                  {addressError && <div className="error-message">{addressError}</div>}
+
+                  <input
+                    type="text"
+                    value={voterId}
+                    onChange={(e) => setVoterId(e.target.value)}
+                    placeholder="Voter ID (e.g., ID-001)"
+                    className={`input ${voterError ? 'input-error' : ''}`}
+                    disabled={loading}
+                  />
+                  {voterError && <div className="error-message">{voterError}</div>}
+
+                  <button
+                    className="btn btn-primary btn-block"
+                    onClick={handleAddEligibleVoter}
+                    disabled={loading || registeredVoters.length >= 100}
+                  >
+                    {loading ? 'Adding...' : 'Add Eligible Voter'}
+                  </button>
+                </div>
+
+                {registeredVoters.length > 0 ? (
+                  <div className="voters-list">
+                    <h4>Registered Voters ({registeredVoters.length})</h4>
+                    <div className="voters-table">
+                      <div className="voters-header">
+                        <div className="col-address">Address</div>
+                        <div className="col-id">Voter ID</div>
+                        <div className="col-voted">Voted</div>
+                        <div className="col-action">Action</div>
+                      </div>
+                      {registeredVoters.map((voter, idx) => (
+                        <div key={idx} className="voters-row">
+                          <div className="col-address">
+                            <span className="mono">{formatAddress(voter.voterAddress)}</span>
+                          </div>
+                          <div className="col-id">{voter.voterId}</div>
+                          <div className="col-voted">
+                            {hasVoted[voter.voterAddress] ? '✓' : ''}
+                          </div>
+                          <div className="col-action">
+                            <button
+                              className="btn-remove"
+                              onClick={() => handleRemoveVoter(voter.voterAddress)}
+                              title="Remove voter"
+                              disabled={loading || hasVoted[voter.voterAddress]}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="voters-list voters-list-empty">
+                    <h4>Registered Voters (0)</h4>
+                    <p>No eligible voters added yet. Use the form above to add voters.</p>
                   </div>
                 )}
               </div>
